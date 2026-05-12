@@ -11,6 +11,7 @@ import io
 import time
 from pptx import Presentation
 from datetime import date
+import datetime as dt
 
 # --- IMPORTS FOR STOCK PREDICTION ---
 import matplotlib.pyplot as plt
@@ -485,102 +486,114 @@ elif selected_project == "📈 Stock Price Prediction":
         st.warning("⚠️ 'stock.png' not found. Please ensure it is saved in the 'images' folder.")
 
     st.divider()
-    st.markdown(
-        "<p style='text-align: center;'>Built with Deep Learning (LSTM) - Fetching real-time market data to predict future trends.</p>",
-        unsafe_allow_html=True)
-    st.divider()
+    popular_stocks = [
+        'POWERGRID.NS', 'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS',
+        'INFY.NS', 'ICICIBANK.NS', 'TATAMOTORS.NS', 'SBIN.NS',
+        'BHARTIARTL.NS', 'ITC.NS', 'BAJFINANCE.NS', 'ASIANPAINT.NS',
+        'AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN'
+    ]
 
-    user_input = st.text_input("Enter Stock Ticker (e.g., AAPL, GOOG, TSLA, MSFT)", "AAPL")
+    selected_stock = st.selectbox(
+        'Search or Select Stock Ticker',
+        popular_stocks + ['Other']
+    )
 
-    start = '2010-01-01'
-    end = date.today().strftime("%Y-%m-%d")
-    st.subheader(f"Data from 2010 to {date.today().year} for {user_input}")
+    if selected_stock == 'Other':
+        user_input = st.text_input('Enter Custom Stock Ticker (e.g., WIPRO.NS)', 'WIPRO.NS')
+    else:
+        user_input = selected_stock
+    # ----------------------------------------------------------------
 
-    # --- OPTIMIZATION 1: Cache the data fetching so it doesn't redownload on every interaction ---
-    @st.cache_data
-    def load_data(ticker, start_date, end_date):
-        data = yf.download(ticker, start=start_date, end=end_date)
-        # Safeguard against yfinance MultiIndex columns update
-        if isinstance(data.columns, pd.MultiIndex):
-            data = data['Close']
-            data.columns = ['Close']
-        return data
+    # Download the data
+    start = dt.datetime(2000, 1, 1)
+    end = dt.datetime(2024, 11, 1)
 
-    with st.spinner("Fetching data..."):
-        # Call the cached function
-        df = load_data(user_input, start, end)
-        st.write(df.describe())
+    st.subheader(f"Fetching Data for {user_input}...")
+    try:
+        df = yf.download(user_input, start=start, end=end)
+        if df.empty:
+            st.error("No data found for the given ticker. Please try a valid symbol.")
+            st.stop()
+    except Exception as e:
+        st.error(f"Error fetching data: {e}")
+        st.stop()
 
-    st.subheader('Closing Price vs Time')
+    st.subheader('Data from 2000 - 2024')
+    st.write(df.describe())
+
+    # Plotting the Closing Price
+    st.subheader('Closing Price vs Time chart')
     fig = plt.figure(figsize=(12, 6))
-    plt.plot(df['Close'], label='Close Price')
+    plt.plot(df['Close'], label='Closing Price', linewidth=1)
     plt.legend()
     st.pyplot(fig)
 
-    st.subheader('Closing Price vs Time with 100MA & 200MA')
+    # Plotting with 100 Days Moving Average
+    st.subheader('Closing Price vs Time chart with 100MA')
     ma100 = df['Close'].rolling(100).mean()
+    fig = plt.figure(figsize=(12, 6))
+    plt.plot(df['Close'], label='Closing Price', linewidth=1)
+    plt.plot(ma100, label='100 Days MA', linewidth=1.5)
+    plt.legend()
+    st.pyplot(fig)
+
+    # Plotting with 100 Days & 200 Days Moving Averages
+    st.subheader('Closing Price vs Time chart with 100MA & 200MA')
     ma200 = df['Close'].rolling(200).mean()
     fig = plt.figure(figsize=(12, 6))
-    plt.plot(df['Close'], label='Close Price')
-    plt.plot(ma100, 'r', label='100 days MA')
-    plt.plot(ma200, 'g', label='200 days MA')
+    plt.plot(df['Close'], label='Closing Price', linewidth=1)
+    plt.plot(ma100, label='100 Days MA', linewidth=1.5)
+    plt.plot(ma200, label='200 Days MA', linewidth=1.5)
     plt.legend()
     st.pyplot(fig)
 
-    st.divider()
-    st.subheader('Predictions vs Original')
+    # Data Splitting exactly like the notebook (70% Training, 30% Testing)
+    data_training = pd.DataFrame(df['Close'][0:int(len(df) * 0.70)])
+    data_testing = pd.DataFrame(df['Close'][int(len(df) * 0.70): int(len(df))])
 
-    # --- OPTIMIZATION 2: Cache the model loading so it stays in memory ---
-    @st.cache_resource
-    def get_model():
-        return load_model('keras_model.keras')
-
+    # Load Model
+    st.subheader('Model Predictions')
     try:
-        # Call the cached model
-        model = get_model()
-
-        # Data Splitting using Pandas
-        data_training = pd.DataFrame(df['Close'][0:int(len(df) * 0.70)])
-        data_testing = pd.DataFrame(df['Close'][int(len(df) * 0.70): int(len(df))])
-
-        # Scaling
-        scaler = MinMaxScaler(feature_range=(0, 1))
-        data_training_array = scaler.fit_transform(data_training)
-
-        # Testing data preparation (Using robust pd.concat)
-        past_100_days = data_training.tail(100)
-        final_df = pd.concat([past_100_days, data_testing], ignore_index=True)
-        input_data = scaler.transform(final_df)
-
-        x_test = []
-        y_test = []
-
-        for i in range(100, input_data.shape[0]):
-            x_test.append(input_data[i - 100: i])
-            y_test.append(input_data[i, 0])
-
-        x_test, y_test = np.array(x_test), np.array(y_test)
-
-        with st.spinner("Predicting Future Trends..."):
-            y_predicted = model.predict(x_test)
-
-        # --- OPTIMIZATION 3: Use the built-in inverse_transform ---
-        y_predicted = scaler.inverse_transform(y_predicted.reshape(-1, 1))
-        y_test = scaler.inverse_transform(y_test.reshape(-1, 1))
-
-        # Plot Final Graph
-        fig2 = plt.figure(figsize=(12, 6))
-        plt.plot(y_test, 'b', label='Original Price')
-        plt.plot(y_predicted, 'r', label='Predicted Price')
-        plt.xlabel('Time')
-        plt.ylabel('Price')
-        plt.legend()
-        st.pyplot(fig2)
-
-    except OSError:
-        st.error("⚠️ Error: 'keras_model.keras' not found. Ensure the file is in the same folder.")
+        model = load_model('Stock Price Prediction/keras_model.keras')
     except Exception as e:
-        st.error(f"⚠️ Prediction Error: {e}")
+        st.error(f"Model file 'Stock Price Prediction/keras_model.keras' not found! Please ensure it is saved in the same directory.")
+        st.stop()
+
+    # Prepare testing data
+    # We append the past 100 days of the training data to the testing data to predict the first test value
+    past_100_days = data_training.tail(100)
+    final_df = pd.concat([past_100_days, data_testing], ignore_index=True)
+
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    input_data = scaler.fit_transform(final_df)
+
+    x_test = []
+    y_test = []
+
+    for i in range(100, input_data.shape[0]):
+        x_test.append(input_data[i - 100:i])
+        y_test.append(input_data[i, 0])
+
+    x_test, y_test = np.array(x_test), np.array(y_test)
+
+    # Making Predictions
+    y_predicted = model.predict(x_test)
+
+    # Inverse transform to get actual values
+    # We divide by the scaler scale factor to revert the normalization
+    scale_factor = 1 / scaler.scale_[0]
+    y_predicted = y_predicted * scale_factor
+    y_test = y_test * scale_factor
+
+    # Final Graph: Original vs Predicted Price
+    st.subheader('Predictions vs Original')
+    fig2 = plt.figure(figsize=(12, 6))
+    plt.plot(y_test, label='Original Price', color='blue', linewidth=1.5)
+    plt.plot(y_predicted, label='Predicted Price', color='red', linewidth=1.5)
+    plt.xlabel('Time')
+    plt.ylabel('Price')
+    plt.legend()
+    st.pyplot(fig2)
 
 # ==========================================
 # 🏘️ HOUSE PRICE PREDICTION SECTION
