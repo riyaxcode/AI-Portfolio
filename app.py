@@ -115,9 +115,10 @@ def load_movie_data():
 
 @st.cache_resource
 def load_resume_models():
-    clf = pickle.load(open('Resume Screening Model/rf_classifier_categorization.pkl', 'rb'))
-    tfidf = pickle.load(open('Resume Screening Model/tfidf_vectorizer_categorization.pkl', 'rb'))
-    return clf, tfidf
+    clf = pickle.load(open('Resume Screening Model/model.pkl', 'rb'))
+    tfidf = pickle.load(open('Resume Screening Model/tfidf.pkl', 'rb'))
+    le = pickle.load(open('Resume Screening Model/encoder.pkl', 'rb'))
+    return clf, tfidf, le
 
 
 @st.cache_resource
@@ -424,8 +425,6 @@ elif selected_project == "🎬 Movie Recommendation System":
     except Exception as e:
         st.error(f"❌ An unexpected error occurred: {e}")
 
-
-# ==========================================
 # 📄 RESUME SCREENING SECTION
 # ==========================================
 elif selected_project == "📄 Resume Screening Model":
@@ -443,7 +442,9 @@ elif selected_project == "📄 Resume Screening Model":
     st.divider()
 
     try:
-        clf, tfidf = load_resume_models()
+        # ⚠️ UPDATION 1: Yahan 'le' (LabelEncoder) ko bhi load karna hoga.
+        # Ensure that your `load_resume_models()` function returns 3 things: clf, tfidf, le
+        clf, tfidf, le = load_resume_models()
 
         uploaded_file = st.file_uploader("Upload Resume", type=["pdf", "docx", "txt", "pptx"])
 
@@ -459,9 +460,20 @@ elif selected_project == "📄 Resume Screening Model":
                     if resume_text.strip():
                         st.subheader("Prediction Results")
                         with st.spinner("Analyzing Resume..."):
-                            category = predict_resume_category(resume_text, clf, tfidf)
+                            # ⚠️ UPDATION 2: Yeh function ab ek number predict karega (e.g., 23)
+                            prediction_number = predict_resume_category(resume_text, clf, tfidf)
 
-                        st.success(f"### Predicted Job Category: **{category}**")
+                            # ⚠️ UPDATION 3: Number ko wapas Job Role String mein convert karna (Decoding)
+                            # Agar output array form mein hai toh usko handle karne ke liye list [ ] use kiya hai
+                            import numpy as np
+
+                            if isinstance(prediction_number, (np.ndarray, list)):
+                                category_name = le.inverse_transform(prediction_number)[0]
+                            else:
+                                category_name = le.inverse_transform([prediction_number])[0]
+
+                        # Ab number ki jagah actual category name print hoga
+                        st.success(f"### Predicted Job Category: **{category_name}**")
                     else:
                         st.warning("No readable text found in the document.")
 
@@ -470,8 +482,7 @@ elif selected_project == "📄 Resume Screening Model":
 
     except FileNotFoundError as e:
         st.error(
-            f"❌ Error loading resume models. Make sure 'clf.pkl' and 'tfidf.pkl' are in the 'Resume Screening Model' folder. Details: {e}")
-
+            f"❌ Error loading resume models. Make sure 'clf.pkl', 'tfidf.pkl', and 'encoder.pkl' are in the 'Resume Screening Model' folder. Details: {e}")
 
 # ==========================================
 # 📈 STOCK PRICE PREDICTION SECTION (UPDATED)
