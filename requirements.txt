@@ -6,3 +6,4 @@ yfinance
 xgboost
 tensorflow
 scikit-learn
+nltk
