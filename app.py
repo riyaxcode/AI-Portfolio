@@ -10,7 +10,6 @@ import docx
 import io
 import time
 from pptx import Presentation
-from datetime import date
 import datetime as dt
 
 # --- IMPORTS FOR STOCK PREDICTION ---
@@ -25,6 +24,7 @@ from sklearn.model_selection import train_test_split
 from xgboost import XGBRegressor
 from sklearn import metrics
 
+# Set page config at the very top
 st.set_page_config(page_title="AI Portfolio Hub", layout="wide")
 
 # NLTK Downloads for Resume Screening
@@ -36,14 +36,14 @@ nltk.download('stopwords', quiet=True)
 # ==========================================
 st.markdown("""
     <style>
-    /* 1. HEADING STYLES (Uppercase, Center, Century Gothic) */
+    /* HEADING STYLES */
     h1, h2, h3, h4, h5, h6 {
         text-transform: uppercase !important;
         font-family: "Century Gothic", sans-serif !important;
         text-align: center !important;
     }
 
-    /* 2. MOVIE CARD STYLES */
+    /* MOVIE CARD STYLES */
     .movie-container {
         text-align: center;
         margin-bottom: 20px;
@@ -70,7 +70,7 @@ st.markdown("""
         -webkit-box-orient: vertical;
     }
 
-    /* 3. BUTTON STYLES (Red Color) */
+    /* BUTTON STYLES */
     div.stButton > button {
         background-color: #FF0000;
         color: white;
@@ -94,7 +94,7 @@ st.markdown("""
 
 
 # ==========================================
-# --- Cached Model Loading Functions ---
+# --- Cached Functions (Data & Models) ---
 # ==========================================
 @st.cache_resource
 def load_crop_models():
@@ -141,11 +141,19 @@ def load_and_train_house_model():
     return model, r2, mae
 
 
+@st.cache_resource
+def load_stock_model():
+    return load_model('Stock Price Prediction/keras_model.keras')
+
+
+@st.cache_data
+def load_stock_data(ticker, start, end):
+    return yf.download(ticker, start=start, end=end)
+
+
 # ==========================================
 # --- Core Logic Functions ---
 # ==========================================
-
-# 1. Movie Recommendation Logic
 def fetch_poster(movie_id):
     try:
         url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key=429d8ef2a929d522ee1b9cb1043e6961&language=en-US"
@@ -182,7 +190,6 @@ def recommend_movies(movie_title, movies_df, similarity_matrix):
         return [], []
 
 
-# 2. Resume Screening Logic
 def cleanResume(txt):
     cleanText = re.sub('http\\S+\\s', ' ', txt)
     cleanText = re.sub('RT|cc', ' ', cleanText)
@@ -215,7 +222,7 @@ def extract_text_from_docx(file):
 def extract_text_from_txt(file):
     try:
         text = file.read().decode('utf-8')
-    except:
+    except UnicodeDecodeError:
         text = file.read().decode('latin-1')
     return text
 
@@ -280,9 +287,9 @@ if selected_project == "🏠 Home":
         unsafe_allow_html=True)
 
     try:
-        st.image("images/AI Portfolio hub.png", use_container_width=True)
+        st.image("Images/AI Portfolio hub.png", width="stretch")
     except Exception:
-        st.warning("⚠️ Hub image not found. Make sure 'AI Portfolio hub.png' is inside the 'images' folder.")
+        st.warning("⚠️ Hub image not found. Make sure 'AI Portfolio hub.png' is inside the 'Images' folder.")
 
     st.subheader("Central AI Command Center")
     st.write(
@@ -307,7 +314,6 @@ if selected_project == "🏠 Home":
         with st.expander("📄 Resume Screening Model"):
             st.write("**About the Model:** Automates HR processes by predicting job categories from uploaded resumes.")
 
-
 # ==========================================
 # 🌾 CROP YIELD PREDICTION SECTION
 # ==========================================
@@ -315,9 +321,9 @@ elif selected_project == "🌾 Crop Yield Prediction":
     st.title("🌾 Crop Yield Prediction")
 
     try:
-        st.image("images/crop.png", use_container_width=True)
+        st.image("Images/crop.png", width="stretch")
     except Exception:
-        st.warning("⚠️ 'crop.png' not found. Please ensure it is saved in the 'images' folder.")
+        pass
 
     st.divider()
     st.markdown(
@@ -339,13 +345,13 @@ elif selected_project == "🌾 Crop Yield Prediction":
             temp = st.number_input("Average Temperature (°C)", min_value=-10.0, max_value=60.0, value=16.37)
             area_list = ["Algeria", "Angola", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas",
                          "Bahrain", "Bangladesh", "Belarus", "Belgium", "Botswana", "Brazil", "Bulgaria",
-                         "Burkina Faso", "Burundi", "Cameroon", "Canada", "Central African Republic", "Chile",
-                         "Colombia", "Croatia", "Denmark", "Dominican Republic", "Ecuador", "Egypt", "El Salvador",
-                         "Eritrea", "Estonia", "Finland", "France", "Germany", "Ghana", "Greece", "Guatemala", "Guinea",
-                         "Guyana", "Haiti", "Honduras", "Hungary", "India", "Indonesia", "Iraq", "Ireland", "Italy",
-                         "Jamaica", "Japan", "Kazakhstan", "Kenya", "Latvia", "Lebanon", "Lesotho", "Libya",
-                         "Lithuania", "Madagascar", "Malawi", "Malaysia", "Mali", "Mauritania", "Mauritius", "Mexico",
-                         "Zambia", "Zimbabwe"]
+                         "Burkina Faso",
+                         "Burundi", "Cameroon", "Canada", "Central African Republic", "Chile", "Colombia", "Croatia",
+                         "Denmark", "Dominican Republic", "Ecuador", "Egypt", "El Salvador", "Eritrea", "Estonia",
+                         "Finland", "France", "Germany", "Ghana", "Greece", "Guatemala", "Guinea", "Guyana", "Haiti",
+                         "Honduras", "Hungary", "India", "Indonesia", "Iraq", "Ireland", "Italy", "Jamaica", "Japan",
+                         "Kazakhstan", "Kenya", "Latvia", "Lebanon", "Lesotho", "Libya", "Lithuania", "Madagascar",
+                         "Malawi", "Malaysia", "Mali", "Mauritania", "Mauritius", "Mexico", "Zambia", "Zimbabwe"]
             area = st.selectbox("Area", area_list)
             crop_list = ["Maize", "Plantains and others", "Potatoes", "Rice, paddy", "Sorghum", "Soybeans",
                          "Sweet potatoes", "Wheat", "Yams"]
@@ -353,7 +359,7 @@ elif selected_project == "🌾 Crop Yield Prediction":
 
         st.divider()
 
-        if st.button("Predict Crop Yield 🚀", use_container_width=True):
+        if st.button("Predict Crop Yield 🚀", width="stretch"):
             with st.spinner("Calculating predictions..."):
                 try:
                     input_data = pd.DataFrame([[year, rainfall, pesticides, temp, area, item]],
@@ -367,8 +373,7 @@ elif selected_project == "🌾 Crop Yield Prediction":
 
     except FileNotFoundError as e:
         st.error(
-            f"❌ Error loading models. Please ensure 'dtr.pkl' and 'preprocessor.pkl' are inside the 'Crop Yield Prediction' folder. Details: {e}")
-
+            f"❌ Error loading models. Please ensure files are inside the 'Crop Yield Prediction' folder. Details: {e}")
 
 # ==========================================
 # 🎬 MOVIE RECOMMENDATION SECTION
@@ -377,9 +382,9 @@ elif selected_project == "🎬 Movie Recommendation System":
     st.title("🎬 Movie Recommendation System")
 
     try:
-        st.image("images/movie.png", use_container_width=True)
+        st.image("Images/movie.png", width="stretch")
     except Exception:
-        st.warning("⚠️ Conceptual system banner image ('movie.png') not found. Check the 'images' folder.")
+        pass
 
     st.divider()
     st.markdown(
@@ -401,7 +406,7 @@ elif selected_project == "🎬 Movie Recommendation System":
             placeholder="Search or Select a Movie..."
         )
 
-        if st.button("Recommend", use_container_width=True):
+        if st.button("Recommend", width="stretch"):
             if selected_movie:
                 with st.spinner(f"Fetching recommendations for **{selected_movie}**..."):
                     names, posters = recommend_movies(selected_movie, movies_df, similarity_matrix)
@@ -425,15 +430,16 @@ elif selected_project == "🎬 Movie Recommendation System":
     except Exception as e:
         st.error(f"❌ An unexpected error occurred: {e}")
 
+# ==========================================
 # 📄 RESUME SCREENING SECTION
 # ==========================================
 elif selected_project == "📄 Resume Screening Model":
     st.title("📄 Resume Screening Model")
 
     try:
-        st.image("images/resumee.png", use_container_width=True)
+        st.image("Images/resumee.png", width="stretch")
     except Exception:
-        st.warning("⚠️ 'resumee.png' not found. Please ensure it is saved in the 'images' folder.")
+        pass
 
     st.divider()
     st.markdown(
@@ -442,8 +448,6 @@ elif selected_project == "📄 Resume Screening Model":
     st.divider()
 
     try:
-        # ⚠️ UPDATION 1: Yahan 'le' (LabelEncoder) ko bhi load karna hoga.
-        # Ensure that your `load_resume_models()` function returns 3 things: clf, tfidf, le
         clf, tfidf, le = load_resume_models()
 
         uploaded_file = st.file_uploader("Upload Resume", type=["pdf", "docx", "txt", "pptx"])
@@ -456,23 +460,17 @@ elif selected_project == "📄 Resume Screening Model":
                 with st.expander("View Extracted Text"):
                     st.write(resume_text)
 
-                if st.button("Predict Category", use_container_width=True):
+                if st.button("Predict Category", width="stretch"):
                     if resume_text.strip():
                         st.subheader("Prediction Results")
                         with st.spinner("Analyzing Resume..."):
-                            # ⚠️ UPDATION 2: Yeh function ab ek number predict karega (e.g., 23)
                             prediction_number = predict_resume_category(resume_text, clf, tfidf)
-
-                            # ⚠️ UPDATION 3: Number ko wapas Job Role String mein convert karna (Decoding)
-                            # Agar output array form mein hai toh usko handle karne ke liye list [ ] use kiya hai
-                            import numpy as np
 
                             if isinstance(prediction_number, (np.ndarray, list)):
                                 category_name = le.inverse_transform(prediction_number)[0]
                             else:
                                 category_name = le.inverse_transform([prediction_number])[0]
 
-                        # Ab number ki jagah actual category name print hoga
                         st.success(f"### Predicted Job Category: **{category_name}**")
                     else:
                         st.warning("No readable text found in the document.")
@@ -482,19 +480,18 @@ elif selected_project == "📄 Resume Screening Model":
 
     except FileNotFoundError as e:
         st.error(
-            f"❌ Error loading resume models. Make sure 'clf.pkl', 'tfidf.pkl', and 'encoder.pkl' are in the 'Resume Screening Model' folder. Details: {e}")
+            f"❌ Error loading resume models. Make sure files are in the 'Resume Screening Model' folder. Details: {e}")
 
 # ==========================================
-# 📈 STOCK PRICE PREDICTION SECTION (UPDATED)
+# 📈 STOCK PRICE PREDICTION SECTION
 # ==========================================
 elif selected_project == "📈 Stock Price Prediction":
-
     st.title("📈 Stock Price Prediction App")
 
     try:
-        st.image("images/stock.png", use_container_width=True)
+        st.image("Images/stock.png", use_container_width=True)
     except Exception:
-        st.warning("⚠️ 'stock.png' not found. Please ensure it is saved in the 'images' folder.")
+        pass
 
     st.divider()
     popular_stocks = [
@@ -504,24 +501,20 @@ elif selected_project == "📈 Stock Price Prediction":
         'AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN'
     ]
 
-    selected_stock = st.selectbox(
-        'Search or Select Stock Ticker',
-        popular_stocks + ['Other']
-    )
+    selected_stock = st.selectbox('Search or Select Stock Ticker', popular_stocks + ['Other'])
 
     if selected_stock == 'Other':
         user_input = st.text_input('Enter Custom Stock Ticker (e.g., WIPRO.NS)', 'WIPRO.NS')
     else:
         user_input = selected_stock
-    # ----------------------------------------------------------------
 
-    # Download the data
+    # Download the data (Dynamic up to today)
     start = dt.datetime(2000, 1, 1)
-    end = dt.datetime(2024, 11, 1)
+    end = dt.date.today()  # Changed to always grab the latest market data
 
     st.subheader(f"Fetching Data for {user_input}...")
     try:
-        df = yf.download(user_input, start=start, end=end)
+        df = load_stock_data(user_input, start, end)
         if df.empty:
             st.error("No data found for the given ticker. Please try a valid symbol.")
             st.stop()
@@ -529,17 +522,17 @@ elif selected_project == "📈 Stock Price Prediction":
         st.error(f"Error fetching data: {e}")
         st.stop()
 
-    st.subheader('Data from 2000 - 2024')
+    st.subheader(f'Data from 2000 - {end.year}')
     st.write(df.describe())
 
-    # Plotting the Closing Price
+    # Plotting functions (Using plt.close() to prevent memory leaks)
     st.subheader('Closing Price vs Time chart')
     fig = plt.figure(figsize=(12, 6))
     plt.plot(df['Close'], label='Closing Price', linewidth=1)
     plt.legend()
     st.pyplot(fig)
+    plt.close(fig)
 
-    # Plotting with 100 Days Moving Average
     st.subheader('Closing Price vs Time chart with 100MA')
     ma100 = df['Close'].rolling(100).mean()
     fig = plt.figure(figsize=(12, 6))
@@ -547,8 +540,8 @@ elif selected_project == "📈 Stock Price Prediction":
     plt.plot(ma100, label='100 Days MA', linewidth=1.5)
     plt.legend()
     st.pyplot(fig)
+    plt.close(fig)
 
-    # Plotting with 100 Days & 200 Days Moving Averages
     st.subheader('Closing Price vs Time chart with 100MA & 200MA')
     ma200 = df['Close'].rolling(200).mean()
     fig = plt.figure(figsize=(12, 6))
@@ -557,21 +550,19 @@ elif selected_project == "📈 Stock Price Prediction":
     plt.plot(ma200, label='200 Days MA', linewidth=1.5)
     plt.legend()
     st.pyplot(fig)
+    plt.close(fig)
 
-    # Data Splitting exactly like the notebook (70% Training, 30% Testing)
     data_training = pd.DataFrame(df['Close'][0:int(len(df) * 0.70)])
     data_testing = pd.DataFrame(df['Close'][int(len(df) * 0.70): int(len(df))])
 
-    # Load Model
     st.subheader('Model Predictions')
     try:
-        model = load_model('Stock Price Prediction/keras_model.keras')
+        model = load_stock_model()
     except Exception as e:
-        st.error(f"Model file 'Stock Price Prediction/keras_model.keras' not found! Please ensure it is saved in the same directory.")
+        st.error(
+            f"Model file 'Stock Price Prediction/keras_model.keras' not found! Please ensure it is saved in the same directory.")
         st.stop()
 
-    # Prepare testing data
-    # We append the past 100 days of the training data to the testing data to predict the first test value
     past_100_days = data_training.tail(100)
     final_df = pd.concat([past_100_days, data_testing], ignore_index=True)
 
@@ -586,17 +577,12 @@ elif selected_project == "📈 Stock Price Prediction":
         y_test.append(input_data[i, 0])
 
     x_test, y_test = np.array(x_test), np.array(y_test)
-
-    # Making Predictions
     y_predicted = model.predict(x_test)
 
-    # Inverse transform to get actual values
-    # We divide by the scaler scale factor to revert the normalization
     scale_factor = 1 / scaler.scale_[0]
     y_predicted = y_predicted * scale_factor
     y_test = y_test * scale_factor
 
-    # Final Graph: Original vs Predicted Price
     st.subheader('Predictions vs Original')
     fig2 = plt.figure(figsize=(12, 6))
     plt.plot(y_test, label='Original Price', color='blue', linewidth=1.5)
@@ -605,6 +591,7 @@ elif selected_project == "📈 Stock Price Prediction":
     plt.ylabel('Price')
     plt.legend()
     st.pyplot(fig2)
+    plt.close(fig2)
 
 # ==========================================
 # 🏘️ HOUSE PRICE PREDICTION SECTION
@@ -613,9 +600,9 @@ elif selected_project == "🏘️ House Price Prediction":
     st.title("🏡 California House Price Predictor")
 
     try:
-        st.image("images/house.png", use_container_width=True)
+        st.image("Images/house.png", width="stretch")
     except Exception:
-        st.warning("⚠️ 'house.png' not found. Please ensure it is saved in the 'images' folder.")
+        pass
 
     st.divider()
     st.markdown(
@@ -650,12 +637,11 @@ elif selected_project == "🏘️ House Price Prediction":
 
     st.divider()
 
-    if st.button("Predict Price 🚀", use_container_width=True):
+    if st.button("Predict Price 🚀", width="stretch"):
         input_data = np.array([[MedInc, HouseAge, AveRooms, AveBedrms, Population, AveOccup, Latitude, Longitude]])
 
         with st.spinner("Predicting Price..."):
             prediction = model.predict(input_data)
 
         estimated_price = prediction[0] * 100000
-
         st.success(f"### 🏡 Estimated House Price: ${estimated_price:,.2f}")
